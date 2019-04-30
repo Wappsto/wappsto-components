@@ -1,0 +1,25 @@
+{
+  "name": "wappsto-components",
+  "version": "1.0.0",
+  "description": "",
+  "main": "",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Samislx/wappsto-components.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Samislx/wappsto-components/issues"
+  },
+  "homepage": "https://github.com/Samislx/wappsto-components#readme",
+  "dependencies": {
+    "prop-types": "^15.7.2",
+    "react": "^16.8.6",
+    "react-redux": "^7.0.3",
+    "redux": "^4.0.1"
+  }
+}
