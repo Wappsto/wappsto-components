@@ -2,10 +2,9 @@ import { connect as reduxConnect } from 'react-redux';
 import { bindActionCreators } from 'redux';
 import React, { Component } from 'react';
 
-import { initializeStream } from "wappsto-redux/stream";
-
 import * as request from 'wappsto-redux/actions/request';
 import * as session from 'wappsto-redux/actions/session';
+import * as stream from 'wappsto-redux/actions/stream';
 
 import { getRequest } from 'wappsto-redux/selectors/request';
 
@@ -20,7 +19,7 @@ function mapStateToProps(state, componentProps){
 
 function mapDispatchToProps(dispatch){
   return {
-    ...bindActionCreators({...request, ...session}, dispatch)
+    ...bindActionCreators({...request, ...session, ...stream}, dispatch)
   }
 }
 
@@ -72,7 +71,7 @@ export class Login extends Component {
   }
   startStream(session){
     if(this.stream){
-      initializeStream(this.stream, session.meta.id);
+      this.props.initializeStream(this.stream, session.meta.id);
     } else {
       console.log("stream object not defined in login page, stream was not initialized");
     }
