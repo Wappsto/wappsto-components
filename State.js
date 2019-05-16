@@ -21,7 +21,6 @@ function mapDispatchToProps(dispatch){
 export class State extends Component {
   constructor(props){
     super(props);
-    this.updateStateFromInput = this.updateStateFromInput.bind(this);
     this.updateState = this.updateState.bind(this);
     this.isUpdating = this.isUpdating.bind(this);
     this.state = {
