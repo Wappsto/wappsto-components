@@ -108,8 +108,8 @@ export class List extends Component {
     this.refresh = this.refresh.bind(this);
     this.makeRequest = this.makeRequest.bind(this);
     this.loadMore = this.loadMore.bind(this);
-    this.offset = 0;
-    this.limit = 50;
+    this.offset = this.props.query.offset || 0;
+    this.limit = this.props.query.limit || 50;
     this.canLoadMore = false;
   }
 
@@ -152,7 +152,7 @@ export class List extends Component {
           canLoadMore: false
         });
       }
-      this.offset = list.length;
+      this.offset = list.length + (this.props.query.offset || 0);
     }
   }
 
@@ -169,7 +169,7 @@ export class List extends Component {
   }
 
   refresh(){
-    this.offset = 0;
+    this.offset = this.props.query.offset || 0;
     this.makeRequest({
       query: {
         expand: 0,
