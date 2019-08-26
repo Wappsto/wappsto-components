@@ -1,38 +1,95 @@
-import PropTypes from 'prop-types';
 import { connect as reduxConnect } from 'react-redux';
 import { bindActionCreators } from 'redux';
-import React, { Component, Fragment } from 'react';
+import { Component } from 'react';
 
 import * as items from 'wappsto-redux/actions/items';
 import * as request from 'wappsto-redux/actions/request';
 
 import { getRequest } from 'wappsto-redux/selectors/request';
-import { getEntity, getEntities } from 'wappsto-redux/selectors/entities';
+import { getEntities } from 'wappsto-redux/selectors/entities';
 import { getItem } from 'wappsto-redux/selectors/items';
+import { isUUID } from 'wappsto-redux/util/helpers';
 
+function getQueryObj(query) {
+	var urlParams = {};
+  var match,
+      pl     = /\+/g,
+      search = /([^&=]+)=?([^&]*)/g,
+      decode = function (s) { return decodeURIComponent(s.replace(pl, " ")); };
+
+  while ((match = search.exec(query)))
+     urlParams[decode(match[1])] = decode(match[2]);
+	return urlParams;
+}
 
 function mapStateToProps(state, componentProps){
-  let { type, id, childType, sort } = componentProps;
-  let parent;
-  let url = "/" + type;
-  if(id && childType){
-    url += "/" + id + "/" + childType;
-    parent = { id, type };
-    entitiesType = childType;
+  let { type, id, childType, sort, url } = componentProps;
+  let parent, entitiesType;
+  let query = {};
+  if(url){
+    let split = url.split("?");
+    url = split[0];
+    query = getQueryObj(split.slice(1).join("?"));
+    split = split[0].split("/");
+    if(isUUID(split[split.length - 1])){
+      id = split[split.length - 1];
+      type = split[split.length - 2];
+      entitiesType = type;
+    } else {
+      if(isUUID(split[split.length - 2]) && split.length > 2){
+        type = split[split.length - 3];
+        id = split[split.length - 2];
+        childType = split[split.length - 1];
+        entitiesType = childType;
+      } else {
+        type = split[split.length - 1];
+        entitiesType = type;
+      }
+    }
   } else {
-    entitiesType = type;
+    url = "/" + type;
+    if(id){
+      if(id.startsWith("?")){
+        query = getQueryObj(id.slice(1));
+      } else {
+        if(!id.startsWith("/")){
+          url += "/";
+        }
+        url += id;
+      }
+    }
+    if(childType){
+      url += "/" + childType;
+      parent = { id, type };
+      entitiesType = childType;
+    } else {
+      entitiesType = type;
+    }
   }
-
-  let items = getEntities(state, entitiesType, { parent });
+  let request = getRequest(state, url, "GET");
+  let items;
+  if(!request
+    || request.status === "error"
+    || (request.status === "pending" && !request.url.includes("offset") && !request.options.query.hasOwnProperty("offset"))
+  ){
+    items = [];
+  } else {
+    items = getEntities(state, entitiesType, { parent });
+  }
   if(sort){
     items.sort(sort);
   }
   return {
+    type: type,
+    childType: childType,
+    entitiesType: entitiesType,
+    id: id,
     url: url,
-    request: getRequest(state, url, "GET"),
+    request: request,
     items: items,
     fetched: getItem(state, url + "_fetched"),
-    length: getItem(state, url + "_length")
+    length: getItem(state, url + "_length"),
+    query: query
   }
 }
 
@@ -43,15 +100,11 @@ function mapDispatchToProps(dispatch){
 }
 
 export class List extends Component {
-  static propTypes = {
-    id: PropTypes.string,
-    type: PropTypes.string.isRequired,
-    chidlType: PropTypes.string,
-    sort: PropTypes.func
-  }
-
   constructor(props){
     super(props);
+    this.state = {
+      canLoadMore: false
+    };
     this.refresh = this.refresh.bind(this);
     this.makeRequest = this.makeRequest.bind(this);
     this.loadMore = this.loadMore.bind(this);
@@ -71,7 +124,10 @@ export class List extends Component {
 
   componentDidUpdate(prevProps){
     this.updateItemCount(prevProps);
-    this.updateListLoadMore();
+    this.updateListLoadMore(prevProps);
+    if(this.props.url !== prevProps.url || this.props.id !== prevProps.id || JSON.stringify(this.props.query) !== JSON.stringify(prevProps.query)){
+      this.refresh();
+    }
   }
 
   updateItemCount(prevProps){
@@ -82,24 +138,30 @@ export class List extends Component {
     }
   }
 
-  updateListLoadMore(){
+  updateListLoadMore(prevProps){
     let list = this.props.items;
     let request = this.props.request;
-    if(request && request.status === "success"){
-      this.offset = list.length;
-      if(list.length % this.limit === 0){
-        this.canLoadMore = true;
+    let prevRequest = prevProps.request;
+    if(request && prevRequest && prevRequest.status !== "success" && request.status === "success"){
+      if(list.length && this.offset !== list.length && list.length % this.limit === 0){
+        this.setState({
+          canLoadMore: true
+        });
       } else {
-        this.canLoadMore = false;
+        this.setState({
+          canLoadMore: false
+        });
       }
+      this.offset = list.length;
     }
   }
 
   loadMore(){
-    if(this.canLoadMore){
+    if(this.state.canLoadMore){
       this.makeRequest({
         query: {
-          expand: 0,
+          expand: 5,
+          ...this.props.query,
           offset: this.offset
         }
       });
@@ -107,8 +169,12 @@ export class List extends Component {
   }
 
   refresh(){
+    this.offset = 0;
     this.makeRequest({
-      query: { expand: 0 },
+      query: {
+        expand: 5,
+        ...this.props.query
+      },
       reset: true
     });
   }
@@ -121,8 +187,21 @@ export class List extends Component {
   }
 }
 
-export function connect(component){
-  return reduxConnect(mapStateToProps, mapDispatchToProps)(component);
+function emptyFunc(){ return {} }
+
+export function connect(component, extraState, extraDispatch){
+  if(!extraState) extraState = emptyFunc;
+  if(!extraDispatch) extraDispatch = emptyFunc;
+  return reduxConnect(
+    (state, componentProps) => ({
+      ...mapStateToProps(state, componentProps),
+      ...extraState(state, componentProps)
+    }),
+    (dispatch) => ({
+      ...mapDispatchToProps(dispatch),
+      ...extraDispatch(dispatch)
+    })
+   )(component);
 }
 
 export default connect(List);
