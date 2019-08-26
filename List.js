@@ -25,11 +25,11 @@ function getQueryObj(query) {
 function mapStateToProps(state, componentProps){
   let { type, id, childType, sort, url } = componentProps;
   let parent, entitiesType;
-  let query = {};
+  let query = { ...componentProps.query };
   if(url){
     let split = url.split("?");
     url = split[0];
-    query = getQueryObj(split.slice(1).join("?"));
+    query = { ...query, ...getQueryObj(split.slice(1).join("?")) };
     split = split[0].split("/");
     if(isUUID(split[split.length - 1])){
       id = split[split.length - 1];
@@ -50,7 +50,7 @@ function mapStateToProps(state, componentProps){
     url = "/" + type;
     if(id){
       if(id.startsWith("?")){
-        query = getQueryObj(id.slice(1));
+        query = { ...query, ...getQueryObj(id.slice(1)) };
       } else {
         if(!id.startsWith("/")){
           url += "/";
@@ -160,7 +160,7 @@ export class List extends Component {
     if(this.state.canLoadMore){
       this.makeRequest({
         query: {
-          expand: 5,
+          expand: 0,
           ...this.props.query,
           offset: this.offset
         }
@@ -172,7 +172,7 @@ export class List extends Component {
     this.offset = 0;
     this.makeRequest({
       query: {
-        expand: 5,
+        expand: 0,
         ...this.props.query
       },
       reset: true
